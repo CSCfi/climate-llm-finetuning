@@ -1,0 +1,5 @@
+*env
+*pycache*
+__marimo__
+data
+log
