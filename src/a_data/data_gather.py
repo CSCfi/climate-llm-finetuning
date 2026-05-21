@@ -27,7 +27,7 @@ with app.setup:
     from collections import defaultdict
 
     # Apply paths (data download folder)
-    JSON_FILE_NAME = "extracted_texts_from_xml_pdf_MARIMO.json"
+    JSON_FILE_NAME = "extracted_texts_from_xml_pdf.json"
     JSON_FILE_PATH = os.path.join(
         "/scratch/",
         os.getenv("SLURM_JOB_ACCOUNT"),
