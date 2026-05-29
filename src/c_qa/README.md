@@ -33,12 +33,12 @@ In the question and answer generation scripts, dedicated vLLM servers are set up
 
 ---
 3. **Use the same json file name that was used in [previous step](./README.md#24), including both suffixes**  
-**Then, run the context retrieval script from project root in the LUMI login node with command (example)**  
+**Then, run the answer generation script from project root in the LUMI login node with command (example)**  
 `sbatch src/c_qa/5_run_create_a.sh meta-llama/Llama-3.1-8B-Instruct climate-llm-finetuning/data/extracted_texts_from_xml_pdf_qa_4096.json 6 1024 64`
 
 **Arguments for the script explained:**
 - `meta-llama/Llama-3.1-8B-Instruct` - LLM to use for answer generation
 - `climate-llm-finetuning/data/extracted_texts_from_xml_pdf_qa_4096.json` - path to json file with the suffixes
-- `6` - number indicating how many contexts to retrieve from vector store
+- `6` - number indicating how many document context sections to retrieve from vector store
 - `1024` - maximum amount of tokens when generating output (answer)
 - `64` - batch size (how many prompts should be grouped up and sent to vLLM server at once)
