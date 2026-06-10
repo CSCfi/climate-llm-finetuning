@@ -15,7 +15,7 @@ In the question and answer generation scripts, dedicated vLLM servers are set up
 **Then, run the question creation script from project root in the LUMI login node with command (example)**  
 `sbatch src/c_qa/3_run_create_q.sh meta-llama/Llama-3.1-8B-Instruct climate-llm-finetuning/data/extracted_texts_from_xml_pdf.json qa`
 
-**Arguments for the script explained:**
+**Script arguments explained:**
 - `meta-llama/Llama-3.1-8B-Instruct` - LLM to use for question generation
 - `climate-llm-finetuning/data/extracted_texts_from_xml_pdf.json` - path to json file
 - `qa` - suffix to be included in the new json file that includes the questions
@@ -25,7 +25,7 @@ In the question and answer generation scripts, dedicated vLLM servers are set up
 **Then, run the context retrieval script from project root in the LUMI login node with command (example)**  
 `sbatch src/c_qa/4_run_get_context.sh Alibaba-NLP/gte-multilingual-base climate-llm-finetuning/data/extracted_texts_from_xml_pdf_qa.json climate-llm-finetuning/data/faiss_index/ 4096`
 
-**Arguments for the script explained:**
+**Script arguments explained:**
 - `Alibaba-NLP/gte-multilingual-base` - embedding model that was used in [vector store creation](../b_faiss/README.md#15)
 - `climate-llm-finetuning/data/extracted_texts_from_xml_pdf_qa.json` - path to json file with the suffix
 - `climate-llm-finetuning/data/faiss_index/` - path to where FAISS index was saved
@@ -36,7 +36,7 @@ In the question and answer generation scripts, dedicated vLLM servers are set up
 **Then, run the answer generation script from project root in the LUMI login node with command (example)**  
 `sbatch src/c_qa/5_run_create_a.sh meta-llama/Llama-3.1-8B-Instruct climate-llm-finetuning/data/extracted_texts_from_xml_pdf_qa_4096.json 6 1024 64`
 
-**Arguments for the script explained:**
+**Script arguments explained:**
 - `meta-llama/Llama-3.1-8B-Instruct` - LLM to use for answer generation
 - `climate-llm-finetuning/data/extracted_texts_from_xml_pdf_qa_4096.json` - path to json file with the suffixes
 - `6` - number indicating how many document context sections to retrieve from vector store

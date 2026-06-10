@@ -7,7 +7,7 @@ In this part, we will finetune a small LLM (8B sized model) with the dataset we 
 **Then, run the finetuning script from project root in the LUMI login node with command (example)**  
 `sbatch src/d_finetune/6_run_finetune_lumi_gpu16_accelerate.sh src/d_finetune/accelerate_config_fsdp.yaml meta-llama/Llama-3.1-8B-Instruct climate-llm-finetuning/ft_data_8b climate-llm-finetuning/data/extracted_texts_from_xml_pdf_qa_4096.json 16 7`
 
-**Arguments for the script explained:**
+**Script arguments explained:**
 - `src/d_finetune/accelerate_config_fsdp.yaml` - accelerate config
 - `meta-llama/Llama-3.1-8B-Instruct` - LLM to be finetuned
 - `climate-llm-finetuning/ft_data_8b` - path where to save the finetuned model

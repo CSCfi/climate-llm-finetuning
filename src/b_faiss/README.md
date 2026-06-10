@@ -14,7 +14,7 @@ By default, `gte-multilingual-base` model from Alibaba-NLP is used as the embedd
 **Then, run the embedding creation script from project root in the LUMI login node with command (example)**  
 `sbatch src/b_faiss/1_run_ingest.sh Alibaba-NLP/gte-multilingual-base climate-llm-finetuning/data/extracted_texts_from_xml_pdf.json climate-llm-finetuning/data/faiss_index/ 4096 500 64`  
 
-**Arguments for the script explained:**
+**Script arguments explained:**
 - `Alibaba-NLP/gte-multilingual-base` - embedding model
 - `climate-llm-finetuning/data/extracted_texts_from_xml_pdf.json` - path to json file (derived from data gather phase)
 - `climate-llm-finetuning/data/faiss_index/ ` - path to where faiss_index will be saved
@@ -26,5 +26,5 @@ By default, `gte-multilingual-base` model from Alibaba-NLP is used as the embedd
 2. **Run the actual FAISS vector store creation script from project root in the LUMI login node with command**  
 `sbatch src/b_faiss/2_run_merge.sh climate-llm-finetuning/data/faiss_index/`
 
-**Arguments for the script explained:**
+**Script arguments explained:**
 - `climate-llm-finetuning/data/faiss_index/` - path to faiss_index

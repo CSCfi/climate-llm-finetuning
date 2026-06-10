@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --account=project_462000131
+#SBATCH --account=project_xxx
 #SBATCH --partition=standard-g
 #SBATCH --output=./log/finetuning_accelerate/%j/output.log
 #SBATCH --error=./log/finetuning_accelerate/%j/error.log

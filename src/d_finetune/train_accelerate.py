@@ -223,11 +223,11 @@ if __name__ == "__main__":
 
     # Load your JSON data
     # Assuming the JSON file is in the format [{"filename": ..., "text": ...}, ...]
-    data_path = args.json_datapath # Path to your dataset
-    # Split dataset into train and validation sets
-    raw_dataset = load_dataset("json", data_files=data_path)
+    raw_dataset = load_dataset("json", data_files=args.json_datapath)
     raw_dataset = raw_dataset.filter(lambda example: "qa" in example and example["qa"] is not None)
     chat_template_dataset = raw_dataset.map(apply_chat_template)
+
+    # Split dataset into train and validation sets
     train_val_dataset = chat_template_dataset['train'].train_test_split(test_size=0.1, seed=42)
     val_test_dataset = train_val_dataset['test'].train_test_split(test_size=0.1, seed=42)
     final_dataset = DatasetDict({
@@ -237,8 +237,8 @@ if __name__ == "__main__":
     })
 
     if rank == 0:
-        # final_dataset["train"].save_to_disk(os.path.join(args.json_datapath, "train_dataset"))
-        # final_dataset["test"].save_to_disk(os.path.join(args.json_datapath, "test_dataset"))
+        final_dataset["train"].save_to_disk(os.path.join(args.json_datapath, "train_dataset"))
+        final_dataset["test"].save_to_disk(os.path.join(args.json_datapath, "test_dataset"))
         print(f"Example from dataset:\n{final_dataset['train'][0]}")
     max_tokens = 4096
     overlap_tokens = 100
