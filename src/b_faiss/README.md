@@ -10,7 +10,7 @@ By default, `gte-multilingual-base` model from Alibaba-NLP is used as the embedd
 
 # How to
 
-1. **First, check the JSON_FILE_NAME defined in [data_gather.py](../a_data/data_gather.py#30)**  
+1. **First, check the JSON_FILE_NAME defined in [data_gather.py](../a_data/data_gather.py#32)**  
 **Then, run the embedding creation script from project root in the LUMI login node with command (example)**  
 `sbatch src/b_faiss/1_run_ingest.sh Alibaba-NLP/gte-multilingual-base climate-llm-finetuning/data/extracted_texts_from_xml_pdf.json climate-llm-finetuning/data/faiss_index/ 4096 500 64`  
 

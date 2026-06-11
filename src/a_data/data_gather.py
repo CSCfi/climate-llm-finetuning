@@ -35,11 +35,14 @@ with app.setup:
         os.getenv("SLURM_JOB_ACCOUNT"),
         "data")
     JSON_FILE_PATH = Path(
-        DATA_PATH /
-        "copernicus_files" /
+        "/scratch",
+        os.getenv("SLURM_JOB_ACCOUNT"),
+        os.getenv("SLURM_JOB_USER"),
+        "climate-llm-finetuning",
+        "data",
         JSON_FILE_NAME)
-     # Where the csv file and pdf/xml files should be saved, currently can differ from actual slurm project
-
+    
+    # Where the csv file and pdf/xml files should be saved, currently can differ from actual slurm project
     CSV_FILES_FOLDER = Path(DATA_PATH / "copernicus_files" / "csv_files")
     DOWNLOAD_FOLDER = Path(DATA_PATH / "copernicus_files" / "copernicus_new")
 
