@@ -15,6 +15,7 @@ with app.setup:
     import json
     import pymupdf
     import random
+    import shutil
 
     import pandas as pd
     import matplotlib.pyplot as plt
@@ -42,7 +43,11 @@ with app.setup:
     CSV_FILES_FOLDER = Path(DATA_PATH / "copernicus_files" / "csv_files")
     DOWNLOAD_FOLDER = Path(DATA_PATH / "copernicus_files" / "copernicus_new")
 
-    NUM_WORKERS = os.getenv("SLURM_CPUS_PER_TASK")
+    NUM_WORKERS = int(os.getenv("SLURM_CPUS_PER_TASK"))
+
+    DATA_AMOUNT = 5000 # EDITABLE! To run the notebook faster, you can adjust how many PDF/XML files will be downloaded
+
+    REMOVE_FILES = True # EDITABLE! Whether you want to remove the downloaded PDF and XML files after extracting the texts from them
 
     # NOTE! If in Marimo notebook view and the popup doesn't have an option to install required packages via pip, you can install them by clicking the Manage packages icon on the left side of the app view and installing the required packages from there.
 
@@ -412,7 +417,6 @@ def _():
 @app.cell(hide_code=True)
 def _():
     mo.md(r"""
-    ---
     Since it's possible that the notebook environment crashes, we get the download links from the csv file that was created before in section **Save the article links in a csv file**.
     """)
     return
@@ -421,7 +425,7 @@ def _():
 @app.cell
 def _():
     df_1 = pd.read_csv(f'{CSV_FILES_FOLDER}/urls.csv', header=None)
-    all_download_links_1 = df_1[0].values.tolist()
+    all_download_links_1 = df_1[0].values.tolist()[:DATA_AMOUNT]
     article_file_urls = list(set(all_download_links_1))
     return (article_file_urls,)
 
@@ -816,7 +820,7 @@ def _():
 
 
 @app.function
-def main():
+def main(remove_files:bool = False):
     start = time.time()
 
     results = extract_text_from_files_in_folder(DOWNLOAD_FOLDER)
@@ -827,11 +831,13 @@ def main():
 
     print(f"Extracted texts saved to {JSON_FILE_PATH}")
     print(f"Took {duration:.2f} seconds")
+    if remove_files:
+        shutil.rmtree(path=DOWNLOAD_FOLDER)
 
 
 @app.cell
 def _():
-    main()
+    main(remove_files=REMOVE_FILES)
     return
 
 
