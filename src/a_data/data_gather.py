@@ -19,6 +19,7 @@ with app.setup:
     import pandas as pd
     import matplotlib.pyplot as plt
 
+    from pathlib import Path
     from datasets import load_from_disk
     from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
     from tqdm import tqdm
@@ -28,27 +29,31 @@ with app.setup:
 
     # Apply paths (data download folder)
     JSON_FILE_NAME = "extracted_texts_from_xml_pdf.json"
-    JSON_FILE_PATH = os.path.join(
+    DATA_PATH = Path(
         "/scratch/",
         os.getenv("SLURM_JOB_ACCOUNT"),
-        os.getenv("SLURM_JOB_USER"),
-        "climate-llm-finetuning",
-        "data",
+        "data")
+    JSON_FILE_PATH = Path(
+        DATA_PATH /
+        "copernicus_files" /
         JSON_FILE_NAME)
-    DATA_PATH = "/scratch/project_465002727/hmerilai/" # Where the csv file and pdf/xml files should be saved, currently can differ from actual slurm project
-    CSV_FILES_FOLDER = os.path.join(DATA_PATH, "data/csv_files")
-    DOWNLOAD_FOLDER = os.path.join(DATA_PATH, "data/copernicus_new/")
+     # Where the csv file and pdf/xml files should be saved, currently can differ from actual slurm project
 
-    # NOTE! If in Marimo notebook view and the popup doesn't have an option to install required packages via pip, you can install them by clicking the Manage packages icon in the left side of the app view and installing the required packages from there.
+    CSV_FILES_FOLDER = Path(DATA_PATH / "copernicus_files" / "csv_files")
+    DOWNLOAD_FOLDER = Path(DATA_PATH / "copernicus_files" / "copernicus_new")
+
+    NUM_WORKERS = os.getenv("SLURM_CPUS_PER_TASK")
+
+    # NOTE! If in Marimo notebook view and the popup doesn't have an option to install required packages via pip, you can install them by clicking the Manage packages icon on the left side of the app view and installing the required packages from there.
 
 
 @app.cell
 def _():
     if not os.path.exists(CSV_FILES_FOLDER):
-        os.mkdir(CSV_FILES_FOLDER)
+        CSV_FILES_FOLDER.mkdir(parents=True, exist_ok=True)
 
     if not os.path.exists(DOWNLOAD_FOLDER):
-        os.mkdir(DOWNLOAD_FOLDER)
+        DOWNLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
     return
 
 
@@ -57,10 +62,10 @@ def _():
     mo.md(r"""
     # Data from Copernicus
 
-    Data is gathered from Copernicus website.
+    Data is gathered from Copernicus website. Since Copernicus has restricted programmatical access to the journals, proceed straight to 3rd option described in the instructions below.
 
-    Instructions on usage:
-    - If you are starting this notebook from scratch, [start from the beginning](#Data-from-Copernicus).
+    Instructions on usage (you can scroll to certain sections with the navigator located on the right of the app view):
+    - If you are starting this notebook from scratch, [**start from the beginning**](#Data-from-Copernicus).
     - If you have downloaded the article URLs and saved them in a CSV file (you have gone through the **Get the URLs of the articles** section), proceed to section [**Download the PDF and XML files**](#Download-the-PDF-and-XML-files)
     - If you have downloaded the PDF and XML files, proceed to section [**Extract text from files**](#Extract-text-from-files)
     """)
@@ -268,11 +273,7 @@ def _(journal_year_counts):
         plt.tight_layout()
         plt.show()
 
-    #_year_slider = widgets.IntRangeSlider(value=[df['Year'].min(), df['Year'].max()], min=df['Year'].min(), max=df['Year'].max(), step=1, description='Year Range', continuous_update=False)
-    #min_articles_slider = widgets.IntSlider(value=0, min=0, max=df['Articles'].max(), step=1, description='Min Articles', continuous_update=False)
-    ## --- Widgets ---
-    ## --- Interactive Binding ---
-    #interact(plot_journals, year_range=_year_slider, min_articles=min_articles_slider)
+
     return df, plot_journals
 
 
@@ -429,13 +430,13 @@ def _():
 def _(article_file_urls, fast_download_files):
     for file_format in ['pdf', 'xml']:
         download_folder = f'{DOWNLOAD_FOLDER}/{file_format}/'
-        _skipped_amount = fast_download_files(article_file_urls, download_folder, file_format, max_workers=1)
+        _skipped_amount = fast_download_files(article_file_urls, download_folder, file_format, max_workers=NUM_WORKERS)
         print(f'Managed to download {len(article_file_urls) - _skipped_amount} / {len(article_file_urls)}.')
     return
 
 
 @app.cell(hide_code=True)
-def _():
+def extract_text():
     mo.md(r"""
     ## Extract text from files
 
