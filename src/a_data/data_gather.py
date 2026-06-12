@@ -34,14 +34,16 @@ with app.setup:
         "/scratch/",
         os.getenv("SLURM_JOB_ACCOUNT"),
         "data")
-    JSON_FILE_PATH = Path(
+    JSON_FILE_FOLDER = Path(
         "/scratch",
         os.getenv("SLURM_JOB_ACCOUNT"),
         os.getenv("SLURM_JOB_USER"),
         "climate-llm-finetuning",
-        "data",
-        JSON_FILE_NAME)
-    
+        "data")
+    JSON_FILE_FOLDER.mkdir(parents=True, exist_ok=True)
+
+    JSON_FILE_PATH = Path(JSON_FILE_FOLDER / JSON_FILE_NAME)
+
     # Where the csv file and pdf/xml files should be saved, currently can differ from actual slurm project
     CSV_FILES_FOLDER = Path(DATA_PATH / "copernicus_files" / "csv_files")
     DOWNLOAD_FOLDER = Path(DATA_PATH / "copernicus_files" / "copernicus_new")
@@ -50,7 +52,7 @@ with app.setup:
 
     DATA_AMOUNT = 5000 # EDITABLE! To run the notebook faster, you can adjust how many PDF/XML files will be downloaded
 
-    REMOVE_FILES = True # EDITABLE! Whether you want to remove the downloaded PDF and XML files after extracting the texts from them
+    REMOVE_FILES = True
 
     # NOTE! If in Marimo notebook view and the popup doesn't have an option to install required packages via pip, you can install them by clicking the Manage packages icon on the left side of the app view and installing the required packages from there.
 
