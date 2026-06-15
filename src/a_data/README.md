@@ -6,7 +6,7 @@ Scientific climate-related articles from Copernicus are used in this project.
 
 A few alternatives to run the code:
 1. (Preferred method) To inspect and run the codes in a notebook-y fashion: 
-    - First, clone the repo to /scratch/<project_xxx>/<user>/
+    - First, clone the repo to /scratch/<project_xxx>/\<user>/
     - Head to LUMI web interface and launch the Marimo OOD app (currently available only in [testing version](https://ood-testing.lumi.csc.fi/public/), located in *My Interactive Sessions*)
         - Select the project and set the working directory to the project folder where this repo is cloned to (scratch)
         - Adjust the settings (Partition: small, number of CPU cores: 14, memory: 60 GiB, time: 4:00:00, module: pytorch)
