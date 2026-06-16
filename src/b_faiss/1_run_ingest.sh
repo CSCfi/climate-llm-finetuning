@@ -14,7 +14,15 @@ module use /appl/local/csc/modulefiles
 module load pytorch/2.7
 
 VENV_DIR="/scratch/$SLURM_JOB_ACCOUNT/$SLURM_JOB_USER/venv"
-source $VENV_DIR/bin/activate
+if [[ -f "$VENV_DIR/bin/activate" ]]; then
+    echo "Activating venv at $VENV_DIR"
+    source $VENV_DIR/bin/activate
+else
+    echo "Creating new venv at $VENV_DIR"
+    python -m venv $VENV_DIR --system-site-packages
+
+    echo "Activating created venv at $VENV_DIR"
+    source $VENV_DIR/bin/activate
 
 export HF_HUB_CACHE=/scratch/${SLURM_JOB_ACCOUNT}/hf-cache/hub/
 
