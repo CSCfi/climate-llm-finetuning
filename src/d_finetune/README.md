@@ -2,10 +2,16 @@
 
 In this part, we will finetune a small LLM (8B sized model) with the dataset we created in [the previous part](../c_qa/). Accelerate framework will be used alongside PEFT and 4-bit quantization. We will use 2 nodes and all of their GPUs, so 16 GPUs in total. In this version, we will use the pytorch module provided by CSC.
 
+In order to finetune Llama model(s), one needs to:
+1. Login (or register) to [HuggingFace](https://huggingface.co/)
+2. [Create an access token](https://huggingface.co/settings/tokens)
+3. Create a token file with your access token in LUMI terminal via ssh or opening login node from LUMI Web UI: `echo hf_access_token > ~/.cache/huggingface/token`
+4. Apply for access to the model in the [model card](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct)
+
 # How to
 1. **Use the same json file name that was used in [previous step](../c_qa/README.md#37)**  
 **Then, run the finetuning script from project root in the LUMI login node with command (example)**  
-`sbatch src/d_finetune/6_run_finetune_lumi_gpu16_accelerate.sh src/d_finetune/accelerate_config_fsdp.yaml meta-llama/Llama-3.1-8B-Instruct climate-llm-finetuning/ft_data_8b climate-llm-finetuning/data/extracted_texts_from_xml_pdf_qa_4096.json 16 7`
+`sbatch src/d_finetune/6_run_finetune_lumi_gpu16_accelerate.sh src/d_finetune/accelerate_config_fsdp.yaml meta-llama/Llama-3.1-8B-Instruct climate-llm-finetuning/ft_data_8b climate-llm-finetuning/data/extracted_texts_from_xml_pdf_qa_4096.json 16 14`
 
 **Script arguments explained:**
 - `src/d_finetune/accelerate_config_fsdp.yaml` - accelerate config

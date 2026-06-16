@@ -4,6 +4,7 @@ import sys
 import time
 import torch
 
+from pathlib import Path
 from datasets import load_dataset, DatasetDict
 from peft import LoraConfig, get_peft_model, AutoPeftModelForCausalLM
 from transformers import AutoModelForCausalLM, AutoTokenizer, DataCollatorForLanguageModeling, Trainer, TrainingArguments
@@ -237,8 +238,8 @@ if __name__ == "__main__":
     })
 
     if rank == 0:
-        final_dataset["train"].save_to_disk(os.path.join(args.json_datapath, "train_dataset"))
-        final_dataset["test"].save_to_disk(os.path.join(args.json_datapath, "test_dataset"))
+        final_dataset["train"].save_to_disk(os.path.join(Path(args.json_datapath).parent, "train_dataset"))
+        final_dataset["test"].save_to_disk(os.path.join(Path(args.json_datapath).parent, "test_dataset"))
         print(f"Example from dataset:\n{final_dataset['train'][0]}")
     max_tokens = 4096
     overlap_tokens = 100
