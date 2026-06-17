@@ -17,7 +17,7 @@ By default, `gte-multilingual-base` model from Alibaba-NLP is used as the embedd
 **Script arguments explained:**
 - `Alibaba-NLP/gte-multilingual-base` - embedding model
 - `climate-llm-finetuning/data/extracted_texts_from_xml_pdf.json` - path to json file (derived from data gather phase)
-- `climate-llm-finetuning/data/faiss_index/ ` - path to where faiss_index will be saved
+- `climate-llm-finetuning/data/faiss_index/` - path to where faiss_index will be saved
 - `4096` - chunk size (for example, with gte-multilingual-base one could set this to be 8192 as it is the max input tokens amount)
 - `500` - chunk overlap (how many characters the chunks overlap with adjacent chunks)
 - `64` - batch size

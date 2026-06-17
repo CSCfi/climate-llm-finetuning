@@ -7,7 +7,7 @@ Scripts and codes in this folder are responsible for
 
 This is possibly the most time consuming part of this tutorial, where the answer creation takes the most time. Total time it should take for all the different parts of the workflow to be run is max 10 hours (depenging on the datasize that was configured in [data creation part](../a_data/data_gather.py#53)).
 
-In the question and answer generation scripts, dedicated vLLM servers are set up to host the chosen LLM. A smaller 8B LLM is used by default to make the scripts run a little bit quicker.
+In the question and answer generation scripts, dedicated vLLM servers are set up to host the chosen LLM. A smaller 8B LLM is used by default to make the scripts run quicker.
 
 # How to
 

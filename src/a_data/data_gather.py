@@ -160,9 +160,8 @@ def _():
     return
 
 
-@app.cell
-def _():
-    base_url = "https://publications.copernicus.org/open-access_journals/journals_by_subject.html"
+@app.function
+def get_journals(base_url):
     fetcher = SublinkFetcher(base_url)
     journal_urls = fetcher.filter_links(
         fetcher.extract_sublinks(base_url),
@@ -170,7 +169,7 @@ def _():
     )
 
     print(f"Amount of journals in Copernicus: {len(journal_urls)}")
-    return fetcher, journal_urls
+    return journal_urls
 
 
 @app.cell(hide_code=True)
@@ -184,55 +183,70 @@ def _():
 
 
 @app.cell
-def _(fetcher, journal_urls):
-    all_download_links = []
-    journal_article_counts = {}
-    journal_year_counts = defaultdict(lambda: defaultdict(int))
+def _(fetcher):
+    def get_articles(journal_urls):
+        all_download_links = []
+        journal_article_counts = {}
+        journal_year_counts = defaultdict(lambda: defaultdict(int))
+    
+        start = time.time()
+    
+        for link_1 in tqdm(journal_urls, desc="\nJournal URLs"):
+            print(f"Processing: {link_1}")
+            journal_name = link_1.split("//")[-1].split(".")[0]
+    
+            # Try both /articles/ and root depending on URL pattern
+            if "articles" in link_1:
+                issue_links = fetcher.filter_links(
+                    fetcher.extract_sublinks(link_1),
+                    SublinkFetcher.article_issue_condition,
+                )
+            else:
+                issue_links = fetcher.filter_links(
+                    fetcher.extract_sublinks(link_1 + "/articles/"),
+                    SublinkFetcher.article_issue_condition,
+                )
+    
+            article_count = 0
+            for link_2 in tqdm(issue_links, desc="Issue pages", leave=False):
+                article_links = fetcher.filter_links(
+                    fetcher.extract_sublinks(link_2),
+                    SublinkFetcher.last_three_number_condition,
+                )
+                filtered_urls = [
+                    url for url in article_links
+                    if url != "javascript:void(0)"
+                ]
+    
+                # Extract years from article URLs
+                for url in filtered_urls:
+                    parts = url.strip("/").split("/")
+                    year = parts[-1]
+                    if re.match(r"^\d{4}$", year):
+                        journal_year_counts[journal_name][int(year)] += 1
+    
+                article_count += len(filtered_urls)
+                all_download_links.extend(filtered_urls)
+    
+            journal_article_counts[journal_name] = article_count
+    
+        end = time.time()
+        print(f"Took {end-start:.0f} seconds to get all sublinks")
+        print(f"Total URLs collected: {len(all_download_links)}")
+        return all_download_links, journal_article_counts, journal_year_counts
 
-    start = time.time()
+    return (get_articles,)
 
-    for link_1 in tqdm(journal_urls, desc="\nJournal URLs"):
-        print(f"Processing: {link_1}")
-        journal_name = link_1.split("//")[-1].split(".")[0]
 
-        # Try both /articles/ and root depending on URL pattern
-        if "articles" in link_1:
-            issue_links = fetcher.filter_links(
-                fetcher.extract_sublinks(link_1),
-                SublinkFetcher.article_issue_condition,
-            )
-        else:
-            issue_links = fetcher.filter_links(
-                fetcher.extract_sublinks(link_1 + "/articles/"),
-                SublinkFetcher.article_issue_condition,
-            )
+@app.cell
+def _():
+    journal_urls = get_journals(base_url="https://publications.copernicus.org/open-access_journals/journals_by_subject.html")
+    return (journal_urls,)
 
-        article_count = 0
-        for link_2 in tqdm(issue_links, desc="Issue pages", leave=False):
-            article_links = fetcher.filter_links(
-                fetcher.extract_sublinks(link_2),
-                SublinkFetcher.last_three_number_condition,
-            )
-            filtered_urls = [
-                url for url in article_links
-                if url != "javascript:void(0)"
-            ]
 
-            # Extract years from article URLs
-            for url in filtered_urls:
-                parts = url.strip("/").split("/")
-                year = parts[-1]
-                if re.match(r"^\d{4}$", year):
-                    journal_year_counts[journal_name][int(year)] += 1
-
-            article_count += len(filtered_urls)
-            all_download_links.extend(filtered_urls)
-
-        journal_article_counts[journal_name] = article_count
-
-    end = time.time()
-    print(f"Took {end-start:.0f} seconds to get all sublinks")
-    print(f"Total URLs collected: {len(all_download_links)}")
+@app.cell
+def _(get_articles, journal_urls):
+    all_download_links, journal_article_counts, journal_year_counts = get_articles(journal_urls)
     return all_download_links, journal_article_counts, journal_year_counts
 
 
@@ -312,32 +326,29 @@ def _():
     mo.md(r"""
     ### Save the article links in a csv file
     ---
-    Next we save the article links in a csv file for possible future use.
+    Next we save the article links in a csv file for future use.
     """)
     return
 
 
-@app.cell
-def _():
+@app.function
+def save_article_links(CSV_FILES_FOLDER, all_download_links):
     try:
         existing_df = pd.read_csv(f"{CSV_FILES_FOLDER}/urls.csv", header=None, index_col=False)
         existing_links = set(existing_df[0])
     except:
         existing_links = []
-    return (existing_links,)
-
-
-@app.cell
-def _(all_download_links, existing_links):
     new_unique_links = [link for link in all_download_links if link not in existing_links]
-    return (new_unique_links,)
-
-
-@app.cell
-def _(new_unique_links):
     if new_unique_links:
         new_df = pd.DataFrame(new_unique_links)
         new_df.to_csv(f"{CSV_FILES_FOLDER}/urls.csv", mode="a", header=False, index=False)
+    else:
+        print("No new links to be saved")
+
+
+@app.cell
+def _(all_download_links):
+    save_article_links(CSV_FILES_FOLDER, all_download_links)
     return
 
 
@@ -428,19 +439,22 @@ def _():
 
 
 @app.cell
-def _():
-    df_1 = pd.read_csv(f'{CSV_FILES_FOLDER}/urls.csv', header=None)
-    all_download_links_1 = df_1[0].values.tolist()[:DATA_AMOUNT]
-    article_file_urls = list(set(all_download_links_1))
-    return (article_file_urls,)
+def _(fast_download_files):
+    def download_pdf_xml_files(CSV_FILES_FOLDER):
+        df_1 = pd.read_csv(f'{CSV_FILES_FOLDER}/urls.csv', header=None)
+        all_download_links_1 = df_1[0].values.tolist()[:DATA_AMOUNT]
+        article_file_urls = list(set(all_download_links_1))
+        for file_format in ['pdf', 'xml']:
+            download_folder = f'{DOWNLOAD_FOLDER}/{file_format}/'
+            _skipped_amount = fast_download_files(article_file_urls, download_folder, file_format, max_workers=NUM_WORKERS)
+            print(f'Managed to download {len(article_file_urls) - _skipped_amount} / {len(article_file_urls)}.')
+
+    return (download_pdf_xml_files,)
 
 
 @app.cell
-def _(article_file_urls, fast_download_files):
-    for file_format in ['pdf', 'xml']:
-        download_folder = f'{DOWNLOAD_FOLDER}/{file_format}/'
-        _skipped_amount = fast_download_files(article_file_urls, download_folder, file_format, max_workers=NUM_WORKERS)
-        print(f'Managed to download {len(article_file_urls) - _skipped_amount} / {len(article_file_urls)}.')
+def _(download_pdf_xml_files):
+    download_pdf_xml_files(CSV_FILES_FOLDER)
     return
 
 
@@ -846,116 +860,18 @@ def _():
     return
 
 
-@app.cell(hide_code=True)
-def _():
-    mo.md(r"""
-    ## Next steps with the data
+@app.cell
+def _(download_pdf_xml_files, get_articles):
+    def sbatch_main():
+        journal_urls = get_journals(base_url="https://publications.copernicus.org/open-access_journals/journals_by_subject.html")
+        all_download_links, _, _ = get_articles(journal_urls)
+        save_article_links(CSV_FILES_FOLDER, all_download_links)
+        lock = threading.Lock()
+        skipped = {"count": 0}
+        session = requests.Session()
+        download_pdf_xml_files(CSV_FILES_FOLDER)
+        main(remove_files=REMOVE_FILES)
 
-    Now that all the CPU heavy work is done, we can move to the next section.
-
-    The next step is computationally intense and requires the GPU resources of LUMI. That is why this section can not be run (efficiently) in a notebook environment.
-
-    There are SLURM scripts in the slurm_scripts folder. The SLURM scripts have parameters that need to be set before they work.
-
-    One can run [run_slurm_scripts.sh](slurm_scripts/run_slurm_scripts.sh) in terminal after logging to LUMI login node. You must be located in the `notebooks` folder when running the command `./slurm_scripts/run_slurm_scripts.sh`, which queues the SLURM jobs (steps 1-6). In the bash script, 8B Llama model is set to be finetuned as default and can be changed by modifying the script (there are 2 other models that have been commented out). Dependencies are in place so that only after a successful run of a job the next one can start.
-
-
-    **The folder contains the following scripts which do the next crucial steps with the data:**
-
-    ---
-    1. [1_run_ingest.sh](slurm_scripts/1_run_ingest.sh): Here we chunk the retrieved text data from the articles and create vector embeddings and gather metadata from the text chunks. This is a preliminary step in creating the FAISS vector store. Model used for creating the embeddings: [Alibaba-NLP/gte-multilingual-base](https://huggingface.co/Alibaba-NLP/gte-multilingual-base)
-    2. [2_run_merge.sh](slurm_scripts/2_run_merge.sh): FAISS vector store is created alongside a metadata.json file that stores the corresponding text chunk via indexing (compared to the vector embedding).
-    3. [3_run_create_q.sh](slurm_scripts/3_run_create_q.sh): [LLM](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct) creates a question based on each abstract of the articles. Questions are stored in the json file that include the body text and abstract of each article.
-    4. [4_run_get_context.sh](slurm_scripts/4_run_get_context.sh): FAISS vector store is queried with the question and a cosine similarity search is conducted. Four relevant text chunks are retrieved and saved in to the json file.
-    5. [5_run_create_a.sh](slurm_scripts/5_run_create_a.sh): LLM is prompted to answer the given question created in step 3. The system prompt of the LLM consists of instructions on how to answer the question and also context to base the answer on (context is the text chunks that were retrieved in step 4). This step concludes the dataset creation step and we end up with a question-answer pair dataset.
-
-    **Finetuning:**
-
-    ---
-    6. [6_run_finetune_lumi_gpu16_accelerate.sh](slurm_scripts/6_run_finetune_lumi_gpu16_accelerate.sh): Chosen LLM is finetuned on the question-answer pair dataset.
-
-    **When the model is finetuned, answers can be created on the test dataset with the finetuned and base models**
-
-    ---
-
-    [run_answer_creation_scripts.sh](slurm_scripts/run_answer_creation_scripts.sh) has been created to automatically run the answer creation for finetuned and base model. Paths to the saved finetuned and base models, and model suffixes by which the json files will be saved, need to be set in the script (8b model is set as default).
-
-    7. [7_1_run_create_answers_finetuned.sh](slurm_scripts/7_1_run_create_answers_finetuned.sh): Here we store the answers of the finetuned model in a separate json file for evaluation purposes.
-    8. [7_2_run_create_answers_finetuned.sh](slurm_scripts/7_2_run_create_answers_base.sh): Here we store the answers of the base version of the model in a separate json file for evaluation purposes.
-
-    ---
-
-    SLURM scripts can be run individually in the terminal with the following command (in terminal you should navigate to the main folder where the slurm_scripts folder is located).:
-
-    - **cd path/to/the/notebooks/folder**
-    - **sbatch slurm_scripts/\<slurm_script_name\> \<parameter1\> \<parameter2\> \<parameter3\> ...**
-
-    ---
-
-    After all the steps are done with, we can proceed to the [second notebook](2_inference.ipynb) for evaluations
-    """)
-    return
-
-
-@app.cell(hide_code=True)
-def _():
-    mo.md(r"""
-    ## Some insights of the training dataset
-
-    Here we will take a closer look at how the dataset looks like, specifically the training split.
-
-    Data cutoff date for Llama-3.2-3B-Instruct is at 12/2023, which means that the dataset with which it will be trained on does not have data past that point. Some of the Copernicus articles are published after the data cutoff date, so we will have a look at how many articles the model will be fine-tuned on past that point.
-    """)
-    return
-
-
-@app.cell(disabled=True)
-def _():
-    dataset = load_from_disk(os.path.join(DOWNLOAD_FOLDER, "train_dataset"))
-    return (dataset,)
-
-
-@app.cell(disabled=True)
-def _(dataset):
-    print(dataset)
-    return
-
-
-@app.cell(disabled=True)
-def _(dataset):
-    def extract_year(example):
-        example["year"] = example["filename"][-4:]
-        return example
-
-    with_years = dataset.map(extract_year)
-    return (with_years,)
-
-
-@app.cell(disabled=True)
-def _(with_years):
-    # Count per year
-    counts = with_years.to_pandas()["year"].value_counts().sort_index()
-    return (counts,)
-
-
-@app.cell(disabled=True)
-def _(counts):
-    ax = counts.plot(kind="bar", figsize=(14, 6))
-
-    plt.xlabel("Year")
-    ax.set_ylabel("Number of Articles")
-    ax.yaxis.tick_right()
-    ax.yaxis.set_label_position("right")
-    plt.xticks(rotation=60)
-    plt.title("Articles per Year")
-
-    last_two_years = counts.index[-2:]
-    last_two_counts = counts.iloc[-2:]
-
-    label_text = f"{last_two_years[-2]}: {last_two_counts.iloc[-2]}\n{last_two_years[-1]}: {last_two_counts.iloc[-1]}"
-    plt.legend(title='Counts:\n' + label_text)
-
-    plt.show()
     return
 
 
