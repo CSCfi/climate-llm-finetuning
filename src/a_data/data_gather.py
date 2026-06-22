@@ -50,7 +50,7 @@ with app.setup:
 
     NUM_WORKERS = int(os.getenv("SLURM_CPUS_PER_TASK"))
 
-    DATA_AMOUNT = 5000 # EDITABLE! To run the notebook faster, you can adjust how many PDF/XML files will be downloaded
+    DATA_AMOUNT = 2000 # EDITABLE! To run the notebook faster, you can adjust how many PDF/XML files will be downloaded
 
     REMOVE_FILES = True
 
@@ -61,9 +61,13 @@ with app.setup:
 def _():
     if not os.path.exists(CSV_FILES_FOLDER):
         CSV_FILES_FOLDER.mkdir(parents=True, exist_ok=True)
+        print("CSV save folder created")
 
     if not os.path.exists(DOWNLOAD_FOLDER):
         DOWNLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+        print("File download folder created")
+
+    print(NUM_WORKERS)
     return
 
 
@@ -182,60 +186,58 @@ def _():
     return
 
 
-@app.cell
-def _(fetcher):
-    def get_articles(journal_urls):
-        all_download_links = []
-        journal_article_counts = {}
-        journal_year_counts = defaultdict(lambda: defaultdict(int))
-    
-        start = time.time()
-    
-        for link_1 in tqdm(journal_urls, desc="\nJournal URLs"):
-            print(f"Processing: {link_1}")
-            journal_name = link_1.split("//")[-1].split(".")[0]
-    
-            # Try both /articles/ and root depending on URL pattern
-            if "articles" in link_1:
-                issue_links = fetcher.filter_links(
-                    fetcher.extract_sublinks(link_1),
-                    SublinkFetcher.article_issue_condition,
-                )
-            else:
-                issue_links = fetcher.filter_links(
-                    fetcher.extract_sublinks(link_1 + "/articles/"),
-                    SublinkFetcher.article_issue_condition,
-                )
-    
-            article_count = 0
-            for link_2 in tqdm(issue_links, desc="Issue pages", leave=False):
-                article_links = fetcher.filter_links(
-                    fetcher.extract_sublinks(link_2),
-                    SublinkFetcher.last_three_number_condition,
-                )
-                filtered_urls = [
-                    url for url in article_links
-                    if url != "javascript:void(0)"
-                ]
-    
-                # Extract years from article URLs
-                for url in filtered_urls:
-                    parts = url.strip("/").split("/")
-                    year = parts[-1]
-                    if re.match(r"^\d{4}$", year):
-                        journal_year_counts[journal_name][int(year)] += 1
-    
-                article_count += len(filtered_urls)
-                all_download_links.extend(filtered_urls)
-    
-            journal_article_counts[journal_name] = article_count
-    
-        end = time.time()
-        print(f"Took {end-start:.0f} seconds to get all sublinks")
-        print(f"Total URLs collected: {len(all_download_links)}")
-        return all_download_links, journal_article_counts, journal_year_counts
+@app.function
+def get_articles(journal_urls, base_url):
+    fetcher = SublinkFetcher(base_url)
+    all_download_links = []
+    journal_article_counts = {}
+    journal_year_counts = defaultdict(lambda: defaultdict(int))
 
-    return (get_articles,)
+    start = time.time()
+
+    for link_1 in tqdm(journal_urls, desc="\nJournal URLs"):
+        print(f"Processing: {link_1}")
+        journal_name = link_1.split("//")[-1].split(".")[0]
+
+        # Try both /articles/ and root depending on URL pattern
+        if "articles" in link_1:
+            issue_links = fetcher.filter_links(
+                fetcher.extract_sublinks(link_1),
+                SublinkFetcher.article_issue_condition,
+            )
+        else:
+            issue_links = fetcher.filter_links(
+                fetcher.extract_sublinks(link_1 + "/articles/"),
+                SublinkFetcher.article_issue_condition,
+            )
+
+        article_count = 0
+        for link_2 in tqdm(issue_links, desc="Issue pages", leave=False):
+            article_links = fetcher.filter_links(
+                fetcher.extract_sublinks(link_2),
+                SublinkFetcher.last_three_number_condition,
+            )
+            filtered_urls = [
+                url for url in article_links
+                if url != "javascript:void(0)"
+            ]
+
+            # Extract years from article URLs
+            for url in filtered_urls:
+                parts = url.strip("/").split("/")
+                year = parts[-1]
+                if re.match(r"^\d{4}$", year):
+                    journal_year_counts[journal_name][int(year)] += 1
+
+            article_count += len(filtered_urls)
+            all_download_links.extend(filtered_urls)
+
+        journal_article_counts[journal_name] = article_count
+
+    end = time.time()
+    print(f"Took {end-start:.0f} seconds to get all sublinks")
+    print(f"Total URLs collected: {len(all_download_links)}")
+    return all_download_links, journal_article_counts, journal_year_counts
 
 
 @app.cell
@@ -245,8 +247,8 @@ def _():
 
 
 @app.cell
-def _(get_articles, journal_urls):
-    all_download_links, journal_article_counts, journal_year_counts = get_articles(journal_urls)
+def _(journal_urls):
+    all_download_links, journal_article_counts, journal_year_counts = get_articles(journal_urls, base_url="https://publications.copernicus.org/open-access_journals/journals_by_subject.html")
     return all_download_links, journal_article_counts, journal_year_counts
 
 
@@ -342,6 +344,7 @@ def save_article_links(CSV_FILES_FOLDER, all_download_links):
     if new_unique_links:
         new_df = pd.DataFrame(new_unique_links)
         new_df.to_csv(f"{CSV_FILES_FOLDER}/urls.csv", mode="a", header=False, index=False)
+        print("Links saved")
     else:
         print("No new links to be saved")
 
@@ -362,72 +365,72 @@ def _():
     return
 
 
-@app.cell
-def _():
-    lock = threading.Lock()
-    skipped = {"count": 0}
+@app.function
+def download_file(url, folder_path, file_format, downloaded_data, skipped, lock):
+    try:
+        topic_name = url.split('//')[1].split('.')[0]
+        article_name = url.split('/')[-4:-1]
+        article_name = '-'.join(article_name) + f'.{file_format}'
+        article_name = topic_name + '-' + article_name
 
-    session = requests.Session()
+        if article_name in downloaded_data:
+            print(f'{article_name} already downloaded')
+            return
+
+        with requests.Session() as session:
+            response = session.get(url + article_name, timeout=60)
+
+        if response.status_code == 200:
+            with open(os.path.join(folder_path, article_name), 'wb') as file:
+                file.write(response.content)
+        else:
+            with lock:
+                skipped["count"] += 1
+            print(f'Failed to download {article_name}. HTTP Status Code: {response.status_code}')
+
+    except Exception as e:
+        with lock:
+            skipped["count"] += 1
+        print(f'Error downloading {url}: {e}')
+
+
+@app.function
+def ensure_folder_exists(folder_path):
+    """Ensure the download folder exists or create it if it doesn't."""
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path, exist_ok=True)
+
+
+@app.function
+def fast_download_files(urls, folder_path, file_format, max_workers=5):
+    ensure_folder_exists(folder_path)
+
+    lock = threading.Lock()
     # session.headers.update(
     #     {"User-Agent": 'python-requests/2.32.5'}
     # )
+    downloaded_data = set(os.listdir(folder_path))
 
-    def download_file(url, folder_path, file_format, downloaded_data, skipped):
-        try:
-            topic_name = url.split('//')[1].split('.')[0]
-            article_name = url.split('/')[-4:-1]
-            article_name = '-'.join(article_name) + f'.{file_format}'
-            article_name = topic_name + '-' + article_name
+    skipped = {"count": 0}
 
-            if article_name in downloaded_data:
-                print(f'{article_name} already downloaded')
-                return
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(
+                download_file,
+                url,
+                folder_path,
+                file_format,
+                downloaded_data,
+                skipped,
+                lock
+            )
+            for url in urls
+        ]
 
-            response = session.get(url + article_name, timeout=60)
+        for future in tqdm(as_completed(futures), total=len(futures), desc=f'Downloading {file_format}s'):
+            future.result()  # let exceptions propagate here
 
-            if response.status_code == 200:
-                with open(os.path.join(folder_path, article_name), 'wb') as file:
-                    file.write(response.content)
-            else:
-                with lock:
-                    skipped["count"] += 1
-                print(f'Failed to download {article_name}. HTTP Status Code: {response.status_code}')
-
-        except Exception as e:
-            with lock:
-                skipped["count"] += 1
-            print(f'Error downloading {url}: {e}')
-
-    def ensure_folder_exists(folder_path):
-        """Ensure the download folder exists or create it if it doesn't."""
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path, exist_ok=True)
-
-    def fast_download_files(urls, folder_path, file_format, max_workers=5):
-        ensure_folder_exists(folder_path)
-        downloaded_data = os.listdir(folder_path)
-
-        skipped = {"count": 0}
-
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [
-                executor.submit(
-                    download_file,
-                    url,
-                    folder_path,
-                    file_format,
-                    downloaded_data,
-                    skipped
-                )
-                for url in urls
-            ]
-
-            for future in tqdm(as_completed(futures), total=len(futures), desc=f'Downloading {file_format}s'):
-                future.result()  # let exceptions propagate here
-
-        return skipped["count"]
-
-    return (fast_download_files,)
+    return skipped["count"]
 
 
 @app.cell(hide_code=True)
@@ -438,22 +441,19 @@ def _():
     return
 
 
-@app.cell
-def _(fast_download_files):
-    def download_pdf_xml_files(CSV_FILES_FOLDER):
-        df_1 = pd.read_csv(f'{CSV_FILES_FOLDER}/urls.csv', header=None)
-        all_download_links_1 = df_1[0].values.tolist()[:DATA_AMOUNT]
-        article_file_urls = list(set(all_download_links_1))
-        for file_format in ['pdf', 'xml']:
-            download_folder = f'{DOWNLOAD_FOLDER}/{file_format}/'
-            _skipped_amount = fast_download_files(article_file_urls, download_folder, file_format, max_workers=NUM_WORKERS)
-            print(f'Managed to download {len(article_file_urls) - _skipped_amount} / {len(article_file_urls)}.')
-
-    return (download_pdf_xml_files,)
+@app.function
+def download_pdf_xml_files(CSV_FILES_FOLDER):
+    df_1 = pd.read_csv(f'{CSV_FILES_FOLDER}/urls.csv', header=None)
+    all_download_links_1 = df_1[0].values.tolist()[:DATA_AMOUNT]
+    article_file_urls = list(set(all_download_links_1))
+    for file_format in ['pdf', 'xml']:
+        download_folder = f'{DOWNLOAD_FOLDER}/{file_format}/'
+        _skipped_amount = fast_download_files(article_file_urls, download_folder, file_format, max_workers=NUM_WORKERS)
+        print(f'Managed to download {len(article_file_urls) - _skipped_amount} / {len(article_file_urls)}.')
 
 
 @app.cell
-def _(download_pdf_xml_files):
+def _():
     download_pdf_xml_files(CSV_FILES_FOLDER)
     return
 
@@ -860,19 +860,13 @@ def _():
     return
 
 
-@app.cell
-def _(download_pdf_xml_files, get_articles):
-    def sbatch_main():
-        journal_urls = get_journals(base_url="https://publications.copernicus.org/open-access_journals/journals_by_subject.html")
-        all_download_links, _, _ = get_articles(journal_urls)
-        save_article_links(CSV_FILES_FOLDER, all_download_links)
-        lock = threading.Lock()
-        skipped = {"count": 0}
-        session = requests.Session()
-        download_pdf_xml_files(CSV_FILES_FOLDER)
-        main(remove_files=REMOVE_FILES)
-
-    return
+@app.function
+def sbatch_main():
+    journal_urls = get_journals(base_url="https://publications.copernicus.org/open-access_journals/journals_by_subject.html")
+    all_download_links, _, _ = get_articles(journal_urls, base_url="https://publications.copernicus.org/open-access_journals/journals_by_subject.html")
+    save_article_links(CSV_FILES_FOLDER, all_download_links)
+    download_pdf_xml_files(CSV_FILES_FOLDER)
+    main(remove_files=REMOVE_FILES)
 
 
 if __name__ == "__main__":

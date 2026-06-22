@@ -31,4 +31,4 @@ else
     python -m pip install marimo==0.20.4 pymupdf
 fi
 
-python -c "from src.a_data.data_gather import main; main()"
+python -c "from src.a_data.data_gather import sbatch_main; sbatch_main()"
