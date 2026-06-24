@@ -23,6 +23,7 @@ else
 
     echo "Activating created venv at $VENV_DIR"
     source $VENV_DIR/bin/activate
+fi
 
 export HF_HUB_CACHE=/scratch/${SLURM_JOB_ACCOUNT}/hf-cache/hub/
 
