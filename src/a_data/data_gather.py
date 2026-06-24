@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.20.4"
+__generated_with = "0.23.0"
 app = marimo.App(width="medium")
 
 with app.setup:
@@ -16,6 +16,7 @@ with app.setup:
     import pymupdf
     import random
     import shutil
+    import lxml
 
     import pandas as pd
     import matplotlib.pyplot as plt
@@ -33,6 +34,7 @@ with app.setup:
     DATA_PATH = Path(
         "/scratch/",
         os.getenv("SLURM_JOB_ACCOUNT"),
+        os.getenv("SLURM_JOB_USER"),
         "data")
     JSON_FILE_FOLDER = Path(
         "/scratch",
@@ -54,11 +56,6 @@ with app.setup:
 
     REMOVE_FILES = True
 
-    # NOTE! If in Marimo notebook view and the popup doesn't have an option to install required packages via pip, you can install them by clicking the Manage packages icon on the left side of the app view and installing the required packages from there.
-
-
-@app.cell
-def _():
     if not os.path.exists(CSV_FILES_FOLDER):
         CSV_FILES_FOLDER.mkdir(parents=True, exist_ok=True)
         print("CSV save folder created")
@@ -68,7 +65,8 @@ def _():
         print("File download folder created")
 
     print(NUM_WORKERS)
-    return
+
+    # NOTE! If in Marimo notebook view and the popup doesn't have an option to install required packages via pip, you can install them by clicking the Manage packages icon on the left side of the app view and installing the required packages from there.
 
 
 @app.cell(hide_code=True)

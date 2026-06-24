@@ -9,26 +9,13 @@
 #SBATCH --time=5:00:00
 
 module purge
-module use /appl/local/csc/modulefiles
-module load pytorch/2.7
+module use /appl/local/laifs/modules
+module load lumi-aif-singularity-bindings
 
-VENV_DIR="/scratch/$SLURM_JOB_ACCOUNT/$SLURM_JOB_USER/venv"
+SIF=/appl/local/laifs/containers/lumi-multitorch-u24r70f21m50t210-20260513_121430/lumi-multitorch-full-u24r70f21m50t210-20260513_121430.sif
 
-if [[ -f "$VENV_DIR/bin/activate" ]]; then
-    echo "Activating venv at $VENV_DIR"
-    source $VENV_DIR/bin/activate
-else
-    echo "Creating new venv at $VENV_DIR"
-    python -m venv $VENV_DIR --system-site-packages
+singularity run $SIF bash -c "python -m venv --system-site-packages /scratch/$SLURM_JOB_ACCOUNT/$SLURM_JOB_USER/marimo_lumi_venv && source /scratch/$SLURM_JOB_ACCOUNT/$SLURM_JOB_USER/marimo_lumi_venv/bin/activate && pip install marimo==0.23.0 PyMuPDF==1.27.2.3 lxml==5.4.0"
 
-    echo "Activating created venv at $VENV_DIR"
-    source $VENV_DIR/bin/activate
+export PYTHONPATH=$PYTHONPATH:/scratch/$SLURM_JOB_ACCOUNT/$SLURM_JOB_USER/marimo_lumi_venv/lib/python3.12/site-packages
 
-    pip list
-
-    which python
-
-    python -m pip install marimo==0.20.4 pymupdf
-fi
-
-python -c "from src.a_data.data_gather import sbatch_main; sbatch_main()"
+singularity run $SIF bash -c "source /scratch/$SLURM_JOB_ACCOUNT/$SLURM_JOB_USER/marimo_lumi_venv/bin/activate && python -c 'from src.a_data.data_gather import sbatch_main; sbatch_main()'"
