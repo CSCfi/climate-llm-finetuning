@@ -21,6 +21,9 @@ This process is divided into two steps. First, answers will be created by runnin
 - `base_8b` - how to name the json file where the answers are stored (should infer which model was used (finetuned or non-finetuned) and model size)
 
 **Then, open the Lumi web UI and choose Marimo notebook**  
-- Select the project and set the working directory to the project folder where this repo is cloned to  
-- Adjust the settings (Partition: `dev-g`, number of CPU cores: `7`, memory: `60 GiB`, time: `2:00:00`)  
+- Select the project and set the working directory to the project folder where this repo is cloned to
+- Adjust the settings (Partition: `dev-g`, number of CPU cores: `7`, memory: `60 GiB`, number of GPUs: `1`, time: `2:00:00`, working directory: `/scratch/$PROJECT`, python: `lumi-multitorch`, module version: `...-20260513_121430 / default`)
+    - The following settings are also required for marimo to work properly inside lumi-multitorch modules:
+        - Enable the virtual environment and add the virtual environment path: `/scratch/$PROJECT/$USER/marimo_venv_lumi`
+        - Enable system installed packages on venv creation
 - Lastly, run the notebook
