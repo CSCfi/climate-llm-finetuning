@@ -21,6 +21,7 @@ A few alternatives to run the code:
         - For lxml, install version 5.4.0
         - For pymupdf, install version 1.27.2.3
     - Run the notebook
+    - There are a couple of variables that can be changed in the first cell (DATA_AMOUNT and REMOVE_FILES). Increasing the amount of data with DATA_AMOUNT variable will take more time (or might not even work properly after some thousand downloads), but it would improve the finetuning quality.
 
 2. To only run the code, execute the [according slurm script](./data_gather.sh) from project root in the LUMI login node with command `sbatch src/a_data/data_gather.sh`
 

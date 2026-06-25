@@ -18,5 +18,5 @@ In order to finetune or otherwise use Llama model(s) found in HuggingFace, one n
 - `meta-llama/Llama-3.1-8B-Instruct` - LLM to be finetuned
 - `climate-llm-finetuning/ft_data_8b` - path where to save the finetuned model
 - `climate-llm-finetuning/data/extracted_texts_from_xml_pdf_qa_4096.json` - path to json file
-- `16` - batch size
+- `16` - batch size (should be a multiple of amount of nodes * amount of gpus per node, in this case 2*8)
 - `14` - number of workers for processing the dataset etc.
