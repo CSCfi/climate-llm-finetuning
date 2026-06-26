@@ -6,64 +6,108 @@ import torch
 
 from pathlib import Path
 from datasets import load_dataset, DatasetDict
-from peft import LoraConfig, get_peft_model, AutoPeftModelForCausalLM
-from transformers import AutoModelForCausalLM, AutoTokenizer, DataCollatorForLanguageModeling, Trainer, TrainingArguments
+from peft import LoraConfig, get_peft_model
+from transformers import AutoModelForCausalLM, AutoTokenizer, DataCollatorForSeq2Seq, Trainer, TrainingArguments
 from functools import partial
 
-def chunk_text(text, chunk_size, overlap_size, eos_token=""):
+def preprocess(examples, tokenizer, max_tokens=4096):
     """
-    Split a given text into chunks with an optional overlap.
+    Convert chat examples into tokenized causal-LM training examples.
 
-    Parameters
-    ----------
-    text : str
-        The text to be chunked.
-    chunk_size : int, optional
-        The maximum size of each chunk. Defaults to `max_chunk_size`.
-    overlap_size : int, optional
-        The number of tokens that should overlap between chunks. Defaults to `overlap_tokens`.
-    eos_token : str, optional
-        Token to append at the end of a chunk.
-
-    Returns
-    -------
-    List[str]
-        A list containing the chunked text.
-
+    Safeguards:
+    - Skip samples where the assistant response is completely truncated.
+    - Ensure labels and input_ids always have identical lengths.
+    - Ensure at least one non-masked label token exists.
     """
-    if chunk_size <= 0:
-        raise ValueError("Chunk size must be greater than 0.")
-    if overlap_size >= chunk_size:
-        raise ValueError("Overlap must be less than chunk size.")
-    if overlap_size < 0:
-        raise ValueError("Overlap cannot be negative.")
 
-    chunks = []
-    start = 0
-    while start < len(text):
-        end = start + chunk_size
-        chunks.append(text[start:end] + eos_token)
-        start += chunk_size - overlap_size
-    return chunks
+    input_ids_list = []
+    attention_mask_list = []
+    labels_list = []
 
+    skipped_no_response = 0
+    skipped_empty_labels = 0
 
-def preprocess(examples, tokenizer, max_tokens=4096, chunk_size=16384, overlap_size=200):
-    """Preprocesses a batch of examples by splitting texts into chunks and tokenizing them."""
-    all_chunks = []
-    for text in examples["prompt"]:
-        chunks = chunk_text(text, chunk_size=chunk_size, overlap_size=overlap_size, eos_token=tokenizer.eos_token)
-        all_chunks.extend(chunks)
+    for example in examples["qa"]:
+        # Build chat messages
+        messages = [
+            {"role": "user", "content": example["question"]},
+            {"role": "assistant", "content": example["answer"]},
+        ]
 
-    tokenized_output = tokenizer(
-        all_chunks,
-        padding=True,
-        truncation=True,
-        max_length=max_tokens,  # Make sure this matches the model's max token length
-        add_special_tokens=True,
-        return_length=False,
+        # Apply chat template — tokenize full conversation
+        full_text = tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=False,
+        )
+
+        # Apply chat template — tokenize question only
+        prompt_text = tokenizer.apply_chat_template(
+            messages[:-1],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
+        full_enc = tokenizer(
+            full_text,
+            truncation=True,
+            max_length=max_tokens,
+            padding=False,
+            add_special_tokens=False,
+        )
+
+        prompt_enc = tokenizer(
+            prompt_text,
+            truncation=True,
+            max_length=max_tokens,
+            padding=False,
+            add_special_tokens=False,
+        )
+
+        input_ids = full_enc["input_ids"]
+        attention_mask = full_enc["attention_mask"]
+
+        # Safety: prompt length cannot exceed actual sequence length
+        prompt_len = min(len(prompt_enc["input_ids"]), len(input_ids))
+
+        # Assistant response completely truncated
+        if prompt_len >= len(input_ids):
+            skipped_no_response += 1
+            continue
+
+        labels = [-100] * prompt_len + input_ids[prompt_len:]
+
+        # Safety check
+        if len(labels) != len(input_ids):
+            raise ValueError(
+                f"Label length mismatch: labels={len(labels)}, "
+                f"input_ids={len(input_ids)}"
+            )
+
+        valid_label_count = sum(label != -100 for label in labels)
+
+        if valid_label_count == 0:
+            skipped_empty_labels += 1
+            continue
+
+        input_ids_list.append(input_ids)
+        attention_mask_list.append(attention_mask)
+        labels_list.append(labels)
+
+    print(
+        f"Skipped {skipped_no_response} samples "
+        f"(assistant response truncated)"
+    )
+    print(
+        f"Skipped {skipped_empty_labels} samples "
+        f"(no valid label tokens)"
     )
 
-    return {"input_ids": tokenized_output["input_ids"]}
+    return {
+        "input_ids": input_ids_list,
+        "attention_mask": attention_mask_list,
+        "labels": labels_list,
+    }
 
 
 if __name__ == "__main__":
@@ -212,24 +256,13 @@ if __name__ == "__main__":
         logging_steps=500,  # Log every 500 steps
     )
 
-    def apply_chat_template(example):
-        messages = [
-            {"role": "user", "content": example['qa']['question']},
-            {"role": "assistant", "content": example['qa']['answer']}
-        ]
-        prompt = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-        return {"prompt": prompt}
-
     # Load your JSON data
     # Assuming the JSON file is in the format [{"filename": ..., "text": ...}, ...]
     raw_dataset = load_dataset("json", data_files=args.json_datapath)
     raw_dataset = raw_dataset.filter(lambda example: "qa" in example and example["qa"] is not None)
-    chat_template_dataset = raw_dataset.map(apply_chat_template)
 
     # Split dataset into train and validation sets
-    train_val_dataset = chat_template_dataset['train'].train_test_split(test_size=0.1, seed=42)
+    train_val_dataset = raw_dataset['train'].train_test_split(test_size=0.1, seed=42)
     val_test_dataset = train_val_dataset['test'].train_test_split(test_size=0.1, seed=42)
     final_dataset = DatasetDict({
         'train': train_val_dataset['train'],
@@ -242,10 +275,9 @@ if __name__ == "__main__":
         final_dataset["test"].save_to_disk(os.path.join(Path(args.json_datapath).parent, "test_dataset"))
         print(f"Example from dataset:\n{final_dataset['train'][0]}")
     max_tokens = 4096
-    overlap_tokens = 100
 
     preprocess_function = partial(
-        preprocess, tokenizer=tokenizer, max_tokens=max_tokens, chunk_size=16384, overlap_size=overlap_tokens
+        preprocess, tokenizer=tokenizer, max_tokens=max_tokens
     )
 
     # Update the mapping logic to preprocess the dataset
@@ -253,7 +285,7 @@ if __name__ == "__main__":
         preprocess_function,
         batched=True,
         batch_size=training_args.train_batch_size,
-        remove_columns=["filename", "text", "abstract_text", "text_source", "context", "qa", "prompt"],
+        remove_columns=["filename", "text", "abstract_text", "text_source", "context", "qa"],
         num_proc=args.num_workers,
         cache_file_name=args.output_path + "/data/tr_data.arrow",
         load_from_cache_file=True,
@@ -262,7 +294,7 @@ if __name__ == "__main__":
     tokenized_val_dataset = final_dataset["val"].map(
         preprocess_function,
         batched=True,
-        remove_columns=["filename", "text", "abstract_text", "text_source", "context", "qa", "prompt"],
+        remove_columns=["filename", "text", "abstract_text", "text_source", "context", "qa"],
         num_proc=args.num_workers,
         cache_file_name=args.output_path + "/data/val_data.arrow",
         load_from_cache_file=True,
@@ -272,17 +304,16 @@ if __name__ == "__main__":
     if rank == 0:
         print(f"Train dataset size: {len(tokenized_train_dataset)}")
         print(f"Validation dataset size: {len(tokenized_val_dataset)}")
-
         print(f"Example from train dataset: {tokenized_train_dataset[0]}")
-    # breakpoint()
-    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False, return_tensors="pt")
+
+    data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model, padding=True, pad_to_multiple_of=8,)
 
     # Initialize the Trainer
     trainer = Trainer(
         model=model,
         args=training_args,
-        train_dataset=tokenized_train_dataset["input_ids"],
-        eval_dataset=tokenized_val_dataset["input_ids"],
+        train_dataset=tokenized_train_dataset,
+        eval_dataset=tokenized_val_dataset,
         tokenizer=tokenizer,
         data_collator=data_collator,
     )
@@ -290,22 +321,26 @@ if __name__ == "__main__":
         print("Starting train")
     trainer.train(resume_from_checkpoint=args.resume)
 
+    if trainer.is_fsdp_enabled:
+        trainer.accelerator.state.fsdp_plugin.set_state_dict_type("FULL_STATE_DICT")
+
     finetuned_model_path = os.path.join(output_dir, f"{model_name.split('_')[-1]}-finetuned")
 
-    trainer.model.save_pretrained(finetuned_model_path)
+    trainer.save_model(finetuned_model_path)
+    tokenizer.save_pretrained(finetuned_model_path)
 
-    model_llama = AutoPeftModelForCausalLM.from_pretrained(
-        finetuned_model_path,
-        low_cpu_mem_usage=True,
-        # device_map="auto",
-    )
+    if args.peft and rank == 0:
+        print(f"\nModel saved to: {finetuned_model_path}")
+        merged_output_dir = os.path.join(
+            output_dir,
+            f"{model_name}_merged"
+        )
 
-    merged_model = model_llama.merge_and_unload()
+        merged_model = model.merge_and_unload()
 
-    if rank == 0:
-        print()
-        print("Training done, you can find all the model checkpoints in", output_dir)
-        # trainer.save_model(output_dir)
-        merged_model.save_pretrained(os.path.join(finetuned_model_path, "merged"))
-        tokenizer.save_pretrained(os.path.join(finetuned_model_path, "merged"))
-        merged_model.config.to_json_file(os.path.join(os.path.join(finetuned_model_path, "merged"), "config.json"))
+        merged_model.save_pretrained(
+            merged_output_dir
+        )
+        tokenizer.save_pretrained(merged_output_dir)
+
+        print("Merged model saved successfully.")
