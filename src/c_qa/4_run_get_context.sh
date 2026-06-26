@@ -16,6 +16,10 @@ module purge
 module use /appl/local/csc/modulefiles
 module load pytorch/2.7
 
+VENV_DIR="/scratch/$SLURM_JOB_ACCOUNT/$SLURM_JOB_USER/venv"
+echo "Activating venv at $VENV_DIR"
+source $VENV_DIR/bin/activate
+
 export HF_HUB_CACHE=/scratch/${SLURM_JOB_ACCOUNT}/hf-cache/hub/
 
 MODEL=$1

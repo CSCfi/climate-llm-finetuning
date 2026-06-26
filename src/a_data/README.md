@@ -9,7 +9,7 @@ A few alternatives to run the code:
     - First, clone the repo to /scratch/<project_xxx>/\<user>/
     - Head to LUMI web interface and launch the Marimo OOD app (currently available only in [testing version](https://ood-testing.lumi.csc.fi/public/), located in *My Interactive Sessions*)
         - Select the project and set the working directory to the project folder where this repo is cloned to (scratch). Marimo opens user's own folder under the project as the default workspace, so the cloned repo should appear in the file list in Marimo view.
-        - Adjust the settings (Partition: `small`, number of CPU cores: `14`, memory: `60 GiB`, time: `4:00:00`, working directory: `/scratch/$PROJECT`, python: `lumi-multitorch`, module version: `...-20260513_121430 / default`)
+        - Adjust the settings (Partition: `small`, number of CPU cores: `14`, memory: `60 GiB`, time: `4:00:00`, working directory: `/scratch/$PROJECT/$USER`, python: `lumi-multitorch`, module version: `...-20260513_121430 / default`)
         - The following settings are also required for marimo to work properly inside lumi-multitorch modules:
             - Enable the virtual environment and add the virtual environment path: `/scratch/$PROJECT/$USER/marimo_lumi_venv`
             - Enable system installed packages on venv creation

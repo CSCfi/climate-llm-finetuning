@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --account=project_462000131
+#SBATCH --account=project_xxx
 #SBATCH --partition=dev-g
 #SBATCH --output=./log/test_inference/%j/output.log
 #SBATCH --error=./log/test_inference/%j/error.log
