@@ -17,7 +17,6 @@ with app.setup:
     from rouge_score import rouge_scorer
     from sklearn.preprocessing import MinMaxScaler
     from evaluate import load
-    from datasets import load_from_disk
     from transformers import AutoTokenizer
     from tqdm import tqdm
     from autoacu import A3CU
@@ -32,18 +31,13 @@ with app.setup:
     CSV_FILES_FOLDER = Path(PROJECT_PATH / "data" / "csv_files")
     DOWNLOAD_FOLDER = Path(PROJECT_PATH / "data")
 
+    # Path to the merged finetuned model directory
     FINETUNED_MODEL_PATH = Path(PROJECT_PATH / "ft_data_8b" / "meta-llama_Llama-3.1-8B-Instruct" / "Llama-3.1-8B-Instruct-finetuned" / "merged")
 
     BASE_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
     tokenizer = AutoTokenizer.from_pretrained(FINETUNED_MODEL_PATH, use_fast=True, cache_dir=os.path.join(PROJECT_PATH.parent.parent, "hf-cache", "hub"))
 
     bert_score_model = "facebook/bart-large-mnli"
-
-
-@app.cell
-def _():
-    test_dataset = load_from_disk(os.path.join(DOWNLOAD_FOLDER, "test_dataset"))
-    return
 
 
 @app.cell(hide_code=True)

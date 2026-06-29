@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --account=project_xxx
 #SBATCH --partition=standard-g
-#SBATCH --output=./log/finetuning_accelerate/%j/output.log
-#SBATCH --error=./log/finetuning_accelerate/%j/error.log
+#SBATCH --output=./log/finetuning/%j/output.log
+#SBATCH --error=./log/finetuning/%j/error.log
 #SBATCH --nodes=2
 #SBATCH --tasks-per-node=1
 #SBATCH --cpus-per-task=56
@@ -47,7 +47,7 @@ srun singularity run $SIF python -m torch.distributed.run \
     --rdzv_id=$SLURM_JOB_ID \
     --rdzv_backend=c10d \
     --rdzv_endpoint="$MASTER_ADDR:$MASTER_PORT" \
-    src/d_finetune/train_accelerate.py $* \
+    src/d_finetune/train.py $* \
     --model $MODEL \
     --json-datapath /scratch/${SLURM_JOB_ACCOUNT}/${USER}/"$DATA" \
     --output-path /scratch/${SLURM_JOB_ACCOUNT}/${USER}/"$OUTPUT" \

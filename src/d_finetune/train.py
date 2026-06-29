@@ -332,8 +332,8 @@ if __name__ == "__main__":
     if args.peft and rank == 0:
         print(f"\nModel saved to: {finetuned_model_path}")
         merged_output_dir = os.path.join(
-            output_dir,
-            f"{model_name}_merged"
+            finetuned_model_path,
+            "merged"
         )
 
         merged_model = model.merge_and_unload()
